@@ -1,0 +1,42 @@
+---
+title: "Seminarska večrazsežni"
+author: "Urška Komatar"
+date: "5/17/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Metoda SAM
+
+SAM (Significance Analysis od Microarrays) je metoda, ki se uporablja za analizo večrazsežnih podatkov, zbranimi z mikromrežami. Uporabljamo jo v primeru, ko analiziramo veliko količino podatkov, torej eksperiment vsebuje 10000 proteinov ali genov, z uporabo p-vrednosti pa bi identificirali 100 proteinov (torej stopnjo značilnosti nastavimo na 0.01). SAM uporablja t-test na ravni posameznega gena ali proteina, da določi, ali je dani vzorec statistično značilen ali ne.
+
+# Uporaba
+
+Test uporabljamo, ko:
+* Vzorci morda niso neodvisni eden od drugega.
+* Vzorci niso nujno normalno porazdeljeni.
+
+S pomočjo testa lahko identificiramo vzorce, ki imajo majhne razlike med kontrolno in testno skupino, a so klub temu statistično značilni
+
+# Primer
+
+How does it work?
+
+SAM Example
+
+We want to find serological proteins that are different between 12 healthy and 12 diseased patients using an antibody-based microarray targeting 1,000 proteins.
+
+The observed relative difference per protein across groups is determined, which considers the mean and variance of each group (Figure 1). This step accounts for protein-specific fluctuations.
+The expected relative difference per protein across groups is determined by averaging the protein responses across numerous permutations. An example of a permutation is given in Figure 2 in which a group label (e.g., healthy, diseased) is assigned at random. These random permutations form a simulated distribution of expected relative differences (like a t-statistic). The random permutations are also used to calculate the false discovery (FDR), or the rate at which a protein will be incorrectly identified as significant.
+Plot the observed vs expected relative difference (Figure 3). This is a visual way of looking at the data.
+Identify proteins-of-interest that deviate from the diagonal line using a threshold (dashed lines in Figure 3). The threshold is determined by calculating false discovery rates (FDRs) using data from the permutations.
+Determine the statistical significance of the proteins-of-interest. Biomarkers with larger deviations between the observed (step 1) and expected (step 2) relative difference are deemed significant. In other words, the larger the deviation and lower the FDR, the higher the significance.
+
+What does the data look like? For each gene or protein, SAM produces a test statistic value based upon the observed value’s deviation from the expected value. Unlike other models that use a p-value or FDR, SAM determines significance based on the deviation of the observed data from the expected value; the expected value is based on numerous permutations of the original data.
+
+
+# Viri
+https://www.raybiotech.com/learning-center/sam/
