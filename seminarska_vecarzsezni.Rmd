@@ -1,19 +1,51 @@
 ---
 title: "Seminarska večrazsežni"
-author: "Urška Komatar"
+author: "Tanja Gošnjak, Urška Komatar"
 date: "5/17/2024"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(samr)
+set.seed(100)
 ```
 
+
+```{r}
+# FUNKCIJE ZA SIMULACIJE
+poison.funkcija <- function(n){
+  mu <- matrix(100, 1000, 20)
+  mu[1:100, 11:20] <- n
+  mu <- scale(mu, center=FALSE, scale=runif(20, 0.5, 1.5))
+  x <- matrix(rpois(length(mu), mu), 1000, 20)
+  y <- c(rep(1, 10), rep(2, 10))
+  samfit <- SAMseq(x, y, resp.type = "Two class unpaired")
+# examine significant gene list
+  print(samfit)
+# plot results
+  plot(samfit)}
+
+nbin.funkcija <- function(n){
+  mu <- matrix(100, 1000, 20)
+  mu[1:100, 11:20] <- n
+  size <- 1
+  mu <- scale(mu, center=FALSE, scale=runif(20, 0.5, 1.5))
+  x <- matrix(rnbinom(length(mu), size=size,mu=mu), 1000, 20)
+  y <- c(rep(1, 10), rep(2, 10))
+  samfit <- SAMseq(x, y, resp.type = "Two class unpaired")
+  # examine significant gene list
+  print(samfit)
+  # plot results
+  plot(samfit)
+  
+}
+
+
+```
 # Metoda SAM
 
 SAM (Significance Analysis od Microarrays) je metoda, ki se uporablja za analizo večrazsežnih podatkov, zbranimi z mikromrežami. Uporabljamo jo v primeru, ko analiziramo veliko količino podatkov, torej eksperiment vsebuje 10000 proteinov ali genov, z uporabo p-vrednosti pa bi identificirali 100 proteinov (torej stopnjo značilnosti nastavimo na 0.01). SAM uporablja t-test na ravni posameznega gena ali proteina, da določi, ali je dani vzorec statistično značilen ali ne.
-
-# Uporaba
 
 Test uporabljamo, ko:
 * Vzorci morda niso neodvisni eden od drugega.
@@ -21,22 +53,63 @@ Test uporabljamo, ko:
 
 S pomočjo testa lahko identificiramo vzorce, ki imajo majhne razlike med kontrolno in testno skupino, a so klub temu statistično značilni
 
-# Primer
+# Teoretična razlaga testne statistike
 
-How does it work?
+**to bo pomoje dost za teorijo**
 
-SAM Example
+The data is xij, i = 1,2,...p genes, j = 1,2,...n samples, and response data yj, j = 1,2,...n (yj may be a vector).
+Here is the generic SAM procedure for array data. For sequencing data, the definition of the score di is different- see Section 12.5.
+1. Compute a statistic
+di = ri ; i=1,2,...p (12.1) si + s0
+ri is a score, si is a standard deviation, and s0 is an exchangeability factor. Details of these quantities are given later in this note.
+2. Compute order statistics d(1) ≤ d(2) · · · ≤ d(p)
+3. Take B sets of permutations of the response values yj. For each permutation b compute
+statistics d∗b and corresponding order statistics d∗b ≤ d∗b · · · ≤ d∗b . i (1) (2) (p)
+4. From the set of B permutations, estimate the expected order statistics by d ̄ (i)
+for i = 1,2,...p.
+5. Plot the d values versus the d ̄ .
+= (1/B) P d∗b b (i)
+(i) (i)
+6. For a fixed threshold ∆, starting at the origin, and moving up to the right find the first i = i1
+such that d − d ̄ > ∆. All genes past i are called “significant positive”. Similarly, start (i) (i) 1
+atorigin,movedowntotheleftandfindthefirsti=i suchthatd ̄ −d >∆.Allgenes 2 (i) (i)
+past i2 are called “significant negative”. For each ∆ define the upper cut-point cutup(∆) as the smallest di among the significant positive genes, and similarly define the lower cut-point cutlow (∆).
 
-We want to find serological proteins that are different between 12 healthy and 12 diseased patients using an antibody-based microarray targeting 1,000 proteins.
 
-The observed relative difference per protein across groups is determined, which considers the mean and variance of each group (Figure 1). This step accounts for protein-specific fluctuations.
-The expected relative difference per protein across groups is determined by averaging the protein responses across numerous permutations. An example of a permutation is given in Figure 2 in which a group label (e.g., healthy, diseased) is assigned at random. These random permutations form a simulated distribution of expected relative differences (like a t-statistic). The random permutations are also used to calculate the false discovery (FDR), or the rate at which a protein will be incorrectly identified as significant.
-Plot the observed vs expected relative difference (Figure 3). This is a visual way of looking at the data.
-Identify proteins-of-interest that deviate from the diagonal line using a threshold (dashed lines in Figure 3). The threshold is determined by calculating false discovery rates (FDRs) using data from the permutations.
-Determine the statistical significance of the proteins-of-interest. Biomarkers with larger deviations between the observed (step 1) and expected (step 2) relative difference are deemed significant. In other words, the larger the deviation and lower the FDR, the higher the significance.
+1. Let sα be the α percentile of the si values. Let dαi = ri/(si + sα).
+2. Compute the 100 quantiles of the si values, denoted by q1 < q2 . . . < q100.
+3. For α ∈ (0,.05,.10...1.0)
+(a) Compute vj = mad(dαi |si ∈ [qj,qj+1)), j = 1,2,...n, where mad is the median absolute deviation from the median, divided by .64
+(b) Compute cv(α)= coefficient of variation of the vj values
+4. Choose αˆ = argmin[cv(α)]. Finally compute sˆ0 = sαˆ. s0 is henceforth fixed at the value sˆ0.
+For Wilcoxon option, rank regression and pattern discovery, the s0 percentile is set at 5%. We found that this offered better performance than automatic estimation of s0 in these cases.
 
-What does the data look like? For each gene or protein, SAM produces a test statistic value based upon the observed value’s deviation from the expected value. Unlike other models that use a p-value or FDR, SAM determines significance based on the deviation of the observed data from the expected value; the expected value is based on numerous permutations of the original data.
+## Določitev praga
 
+
+
+
+
+# Primer (simulacije idt?)
+
+## funkcija samfit
+
+## primer  poissonove porazdelitve pri različnih  parametrih
+
+```{r}
+poison.funkcija(100)
+poison.funkcija(50)
+poison.funkcija(150)
+```
+
+## primer negativne binomske porazdelitve pri različnih  parametrih
+
+```{r}
+nbin.funkcija(100)
+nbin.funkcija(50)
+nbin.funkcija(150)
+```
 
 # Viri
 https://www.raybiotech.com/learning-center/sam/
+https://tibshirani.su.domains/SAM/sam.pdf
