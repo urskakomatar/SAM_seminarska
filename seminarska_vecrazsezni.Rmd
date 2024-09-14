@@ -1,0 +1,273 @@
+---
+title: "Metoda SAM"
+author: "Tanja Gošnjak, Urška Komatar"
+date: "5/17/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = 'hide')
+library(samr)
+library(ggplot2)
+library(knitr)
+
+set.seed(100)
+```
+
+
+# Predstavitev problema
+
+Mikromreže predstavljajo močno tehnologijo, ki omogoča merjenje izražanja na tisoče genov hkrati. Mikromreže vsebujejo oligonukleotide ali cDNA sonde, ki specifično hibridizirajo z genskim materialom, kar omogoča kvantitativno analizo izražanja genov v enem eksperimentu. S to tehnologijo lahko pridobimo vpogled v spremembe v izražanju genov med različnimi biološkimi stanji, kot so zdravo in bolno tkivo, ali pa med različnimi fazami razvoja. Identifikacija signifikantnih sprememb v izražanju genov med različnimi stanji je ključnega pomena za razumevanje bioloških procesov in bolezni. Vseeno pa to predstavlja izziv zaradi ogromnega števila genov, ki jih je potrebno analizirati hkrati. V ta namen je za določitev signifikantnosti teh sprememb potrebna robustna metoda, ki lahko obvladuje visoko dimenzionalnost podatkov.
+
+# Osnovna metoda: t-test za posamezni gen
+
+Pri analizi diferencialnega izražanja genov med dvema biološkima stanjema, lahko izberemo t-test za vsak posamezni gen. T-test omogoča ugotavljanje, ali se izražanje določenega gena statistično značilno razlikuje med dvema skupinama. Pri tem testiramo naslednjo hipotezo:
+
+H0: Ni razlik v izražanju genov med stanjem A in B.
+
+Če je rezultat t-testa za določen gen statistično značilen, sklepamo, da se ta gen različno izraža med obema stanjem. Vendar pa se pri uporabi t-testa za analizo na tisoče genov srečamo s problemom večkratnega testiranja. Ko izvajamo več tisoč testov hkrati, se verjetnost napačnega zavračanja ničelne hipoteze (tj. lažno pozitivnih rezultatov) poveča. To pomeni, da lahko identificiramo veliko genov kot statistično značilne, čeprav v resnici niso. Problem večkratnega testiranja zahteva prilagoditev metod, da bi zagotovili zanesljivost ugotovitev.
+
+# Metoda SAM
+
+Metoda SAM (angl. Significance Analysis od Microarrays) je metoda, ki se uporablja za analizo večrazsežnih podatkov, zbranih z mikromrežami. Uporabljamo jo v primeru, ko analiziramo veliko količino podatkov in je zasnovana za identifikacijo genov, kjer se izražanje statistično značilno spreminja med različnimi biološkimi stanji, kot sta npr. zdravo in bolno tkivo. Eksperiment vsebuje, na primer, 10000 proteinov ali genov, z uporabo p-vrednosti pa bi identificirali 100 proteinov (ali genov) (torej stopnjo značilnosti nastavimo na 0.01). SAM uporablja t-test na ravni posameznega gena ali proteina, da določi, ali je dani vzorec statistično značilen ali ne.
+
+Test uporabljamo, ko:
+* Vzorci morda niso neodvisni eden od drugega,
+* Vzorci niso nujno normalno porazdeljeni.
+
+S pomočjo testa lahko identificiramo vzorce, ki imajo majhne razlike med kontrolno in testno skupino, a so kljub temu statistično značilni. 
+
+## Koraki metode SAM
+
+Dodeljevanje ocene za vsak gen:
+Vsakemu genu je dodeljena ocena (d-score), ki temelji na spremembi v izražanju tega gena med dvema stanjem in standardnem odklonu ponovljenih meritev za ta gen. Ocena za gen upošteva razmerje med povprečno spremembo izražanja in variabilnostjo teh sprememb.
+
+Distribucija med zdravim in bolnim tkivom:
+Ocene genov se primerjajo med zdravim in bolnim tkivom, pri čemer se ugotavlja, kateri geni kažejo statistično značilne razlike v izražanju.
+
+Generiranje permutiranih vzorcev:
+Za oceno pomembnosti sprememb v izražanju se uporablja permutacijsko testiranje. To vključuje naključno permutiranje oznak vzorcev (npr. zdravih in bolnih) in ponovitev analize za vsak permutiran nabor podatkov. Na ta način se generira porazdelitev d-score vrednosti pod ničelno hipotezo (kjer ni razlik v izražanju med stanji).
+
+Določitev praga:
+Geni, katerih ocene (d-score) presegajo določen prag, se štejejo za potencialno pomembne. Prag se določi na podlagi stopnje lažno pozitivnih rezultatov (False Discovery Rate - FDR), ki zagotavlja, da je delež napačno identificiranih genov med izbranimi majhen.
+
+
+# Teoretična razlaga testne statistike
+
+Označimo podatke $x_{ij}$, $i=1,2,...,n$, kjer $i$ označujejo gene in $j$ vzorce. Odzivni podatek je $y_j$, $j=1,2,...n$, ki je običajno vektor in nam določi skupine. Opisan je splošen postopek za SAM za podatke iz mikromrež. Pri drugih postopkih lahko naletimo na različno definicijo testne statistike $d_i$.
+
+* Izračunaj testno statistiko $$di= \frac{r_i}{s_i+s_0}, i = 1,...,p,$$ kjer je $r_i$ rezultat (score), $s_i$ standardni odklon in $s_0$ konstanta.
+
+* Testne statistike razvrsti po velikosti: $$d_1 \leq d_2 \leq...\leq d_p$$
+
+* Izvedi B permutacij odzivne spremenljivke $y_j$. Za vsako simulacijo b izražunaj testno statistiko
+
+Izvedi $B$ permutacij odzivne spremenljivke $y_j$. Za vsako permutacijo $b$ izračunaj statistike $d^*_b$ in ustrezne redne statistike $d^*_b \leq d^*_b \dots \leq d^*_b$.
+
+* Iz niza $B$ permutacij odzivne spremenljivke $y_j$ izračunaj pričakovane  statistike z $\bar{d}_{(i)}$ za $i = 1, 2, \dots, p$.
+
+
+* Nariši vrednosti $d_i$ glede na $\bar{d}_i$:
+
+$$
+\bar{d}_{(i)} = \frac{1}{B} \sum_{b} d^*_{b(i)}
+$$
+* Za fiksen prag $\Delta$, začni pri izhodišču in se pomikaj proti desni, dokler ne najdeš prvega $i = i_1$, za katerega velja $d_i - \bar{d}_i > \Delta$. Vsi geni po $i_1$ so označeni kot "značilno pozitivni". Podobno začni pri izhodišču, se pomikaj proti levi in najdi prvi $i = i_2$, za katerega velja $\bar{d}_i - d_i > \Delta$. Vsi geni po $i_2$ so označeni kot "značilno negativni". Za vsak $\Delta$ določi zgornjo mejno točko $cutup(\Delta)$ kot najmanjši $d_i$ med pomembnimi pozitivnimi geni, in podobno določi spodnjo mejno točko $cutlow(\Delta)$.
+
+
+# Določitev praga (threshold) $\Delta$
+
+Delta ($\Delta$, prag) nam določa število pomembnih sprememb v izražanju genaov. Predstavlja maksimalno deviacijo testne statistike od pričakovane vrednosti, da le ta še ni statistično značilna pod ničelno hipotezo. Višja kot je $\Delta$, manj genov je statistično značilnih, medtem ko pri nižji delti imamo več statistično značilnih genov (občutljivost je večja). Z določitvijo primerne delte nadzorujemo FDR: če zmanjšamo $\Delta$, bo FDR večji in obratno. Določitev primerne $\Delta$ lahko razberemo iz Delta grafa, ki na y osi prikazuje število statistično značilnih genov, na x osi pa vrednost $\Delta$. Drugi način je z izbiro različnih $\Delta$ in opazovanjem FDR. Običajno si želimo vrednost FDR okrog 0.05, torej bomo izbrali $\Delta$, ki nam bo zagotovil najprimernejšo vrednost FDR.
+
+# Simulacije
+
+## Uvodni primer
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# generate matrix
+x<-matrix(rnorm(1000*20),ncol=20)
+dd<-sample(1:1000,size=100)
+
+# add some variance to 100 samples
+u<-matrix(2*rnorm(100),ncol=10,nrow=100)
+x[dd,11:20]<-x[dd,11:20]+u
+
+# class labels
+y<-c(rep(1,10),rep(2,10))
+
+data=list(x=x,
+          y=y, 
+          geneid=as.character(1:nrow(x)),
+          genenames=paste("g", as.character(1:nrow(x)),sep=""), 
+          logged2=TRUE)
+
+
+samr.results<-samr(data, resp.type="Two class unpaired", nperms=100)
+# Plot SAM results
+samr.plot(samr.results)
+title(main = "SAM graf")
+
+
+```
+
+Generirali smo matriko podatkov, z 20 vzorci za ketere imamo podatek za 1000 genov. Matrika je ustvarjena z naključnimi vrednostmi standardne normalne porazdelitve. Iz matrike smo izbrali 100 naključnih vrstic. Zadnjih 10 stolpcev izbranih vrstic smo spremenili z dodajanjem vrednosti iz druge matrike 100x10, ki vsebuje naključne vrednosti, prilagojene tako, da imajo večjo varianco. Določili smo razred vzorcem, 1 oz. 2. Naredili smo SAM analizo, ki je predstavljena na grafu. Pri tem smo naredili 100 permutacij. Graf kaže, da večina genov (črnih točk) leži blizu polne črte, kar kaže, da so njihovi opazovani rezultati blizu pričakovanih rezultatov pod ničelno hipotezo. Nekaj genov (rdeče oz. zelene točke), pa odstopajo od te črte, kar nakazuje, da so različno izraženi med obema skupinama. 
+
+## Simulacije s ponovitvami
+
+Sedaj si oglejmo simulacijo, kjer naredimo 500 ponovitev generiranja podatkov s poissonovo porazdelitvijo podatkov. Pri tem lahko v funkcijo vnesemo določeno vrednost delta, kot rezultat pa bomo dobili izračunano povprečno vrednost FDR. Za vrednosti delta so uporabljene vrednosti 0.1, 0.25, 0.5, 1, 1.5, 2, 2.5. Na podlagi danih vrednosti so izračunane vrednosti FDR. Želeli bi si vrednost FDR okrog 0.05, na podlagi tega izberemo ustrezno vrednost $\Delta$.
+
+
+```{r}
+#funkcija simulacije ponovi tolikokrat kot določiš v parametru permutacije in določiš še delto in glede na to dobiš povprečen fdr ven.(poissonova porazdelitev s parametrom 50)
+
+simulacije <- function(ponovitev,delta){
+  vsi_fdr <- NULL
+  for (i in 1:ponovitev){
+    n <- 50
+    mu <- matrix(100, 1000, 20)
+    mu[1:100, 11:20] <- n
+    mu <- scale(mu, center=FALSE, scale=runif(20, 0.5, 1.5))
+    x <- matrix(rpois(length(mu), mu), 1000, 20)
+    y <- c(rep(1, 10), rep(2, 10))
+    
+    data=list(x=x,y=y, geneid=as.character(1:nrow(x)),
+              genenames=paste("g",as.character(1:nrow(x)),sep=""), logged2=TRUE)
+    
+    samfit <- samr(data, resp.type = "Two class unpaired")
+    delta.table <- samr.compute.delta.table(samfit)
+    siggenes.table<-samr.compute.siggenes.table(samfit,delta, data, delta.table)
+    
+    true_positive_genes <- 1:100  # significant
+    false_positive_genes <- 101:1000  # not significant
+    
+    # total Positives
+    total_positives <- siggenes.table$ngenes.lo + siggenes.table$ngenes.up
+    
+    identified_genes_lo <- as.numeric(siggenes.table$genes.lo[, "Row"])
+    identified_genes_up <- as.numeric(siggenes.table$genes.up[, "Row"])
+    
+    # false positives
+    false_positives <- sum(identified_genes_lo > 100) + sum(identified_genes_up > 100)
+    
+    if (total_positives == 0) {
+      fdr <- 0
+    } else {
+      fdr <- false_positives / total_positives
+    }
+    vsi_fdr <- append(vsi_fdr,fdr)
+    # calculated FDR
+  }
+  return(vsi_fdr)
+  
+}
+
+# rezultati simulacij
+d01 <- read.csv('d01.csv')$x
+d025 <- read.csv('d025.csv')$x
+d05 <- read.csv('d05.csv')$x
+d1 <- read.csv('d1.csv')$x
+d15 <- read.csv('d15.csv')$x
+d2 <- read.csv('d2.csv')$x
+d25 <- read.csv('d25.csv')$x
+
+# vrednosti delta
+delta_values <- c(0.1, 0.25, 0.5, 1, 1.5, 2, 2.5)
+
+fdr_values <- list(d01 = d01, d025 = d025, d05 = d05, d1 = d1, d15 = d15, d2 = d2, d25 = d25)
+
+fdr_means <- sapply(fdr_values, mean)
+
+fdr_sd <- sapply(fdr_values, sd)
+
+# Graf
+plot(delta_values, rep(NA, length(delta_values)), type="n", 
+     xlab="Delta", ylab="Povprecen FDR", main="FDR v odvisnosti od vrednosti delta", ylim=c(0, 1.6))
+
+# vrednosti FDR
+for (i in 1:length(fdr_values)) {
+  points(rep(delta_values[i], length(fdr_values[[i]])), fdr_values[[i]], col="red", pch=16)
+}
+
+# povprečne vrendosti FDR
+lines(delta_values, fdr_means, type="o", col="blue", pch=16)
+
+legend("topleft", legend=c("Povp. FDR", "FDR vrednosti"), 
+       col=c("blue", "red"), pch=16, lty=1)
+
+# tabela
+mean_fdr_table <- data.frame(Delta = delta_values, Mean_FDR = fdr_means, sd_FDR = fdr_sd)
+print(mean_fdr_table)
+
+```
+
+Zgornji graf prikazuje odvisnost vrednosti FDR od izbrane $\Delta$. Rdeče pike predstavljajo vse FDR vrednosti pri dani simulaciji, z modro črto pa povzamemo gibanje povprečne vrednosti FDR. Opazimo, da je približno pri vrednosti 1.0 FDR blizu 0 oz. željene 0.05. To potrjuje tudi izpis iz tabele, kjer je vrednost povprečne vrednosti FDR, pri $\Delta$ = 1.00, 0.04. Opazimo, da se z večanjem vrednosti $\Delta$ manjša napaka FDR, saj na ta način večamo prag, nad katerim so signifikantne vrednosti. Z večanjem vrednosti $\Delta$ in s tem manjšanjem napake FDR pa se manjša tudi standardni odklon, ni pa nujno. Pri visokih vrendostih $\Delta$ ($\Delta$ = 2.0 in $\Delta$ = 2.5) oziroma nizkih vrednostih FDR je vrednost standardnega odklona v danem primeru podobna. Podobno je pri najnižji vrendosti delta ($\Delta$ = 0.1) vrednost standardnega odklona napake FDR manjša kot pri nekaterih večjih vrendostih $\Delta$ (0.25 in 0.5). 
+
+## Grafični prikaz
+
+Običajni prikaz enkrat simuliranih podatkov metode SAM predstavimo z grafom, ki je uporabljen že v uvodnem primeru. Oglejmo si sedaj na zgornjem primeru grafe pri različnih vrednostih $\Delta$. Za $\Delta$ vrednosti izberemo 0.1, 1 in 2.
+
+```{r}
+###PRIMER DA ŠE GRAF ZRIŠE??#####################
+n <- 50
+mu <- matrix(100, 1000, 20)
+mu[1:100, 11:20] <- n
+mu <- scale(mu, center=FALSE, scale=runif(20, 0.5, 1.5))
+x <- matrix(rpois(length(mu), mu), 1000, 20)
+y <- c(rep(1, 10), rep(2, 10))
+
+data=list(x=x,y=y, geneid=as.character(1:nrow(x)),
+genenames=paste("g",as.character(1:nrow(x)),sep=""), logged2=TRUE)
+          
+samfit <- samr(data, resp.type = "Two class unpaired")
+
+delta.1 = 1
+delta.0.1 = 0.1
+delta.2 = 2
+
+
+#delta.table <- samr.compute.delta.table(samfit)
+#siggenes.table<-samr.compute.siggenes.table(samfit,delta, data, delta.table)
+
+#true_positive_genes <- 1:100  # significant
+#false_positive_genes <- 101:1000  # not significant
+
+# total Positives
+#total_positives <- siggenes.table$ngenes.lo + siggenes.table$ngenes.up
+  
+#identified_genes_lo <- as.numeric(siggenes.table$genes.lo[, "Row"])
+#identified_genes_up <- as.numeric(siggenes.table$genes.up[, "Row"])
+
+# false positives
+#false_positives <- sum(identified_genes_lo > 100) + sum(identified_genes_up > 100)
+
+
+#if (total_positives == 0) {
+#  fdr <- 0
+#} else {
+#  fdr <- false_positives / total_positives
+#}
+
+
+samr.plot(samfit, delta.0.1)
+title(main = "SAM graf, Δ=0.1")
+
+samr.plot(samfit, delta.1)
+title(main = "SAM graf, Δ=1")
+
+samr.plot(samfit, delta.2)
+title(main = "SAM graf, Δ=2")
+
+```
+
+Kot smo pričakovali iz simulacij, je pri $\Delta=0.1$ večina genov izven določenega praga, posledično je vrednost FDR prevelika (večja kot 0.5). Drugi graf z $\Delta=1$ je takšen kot bi si ga želeli, torej približno 5% simuliranih genov je izven željenega praga. $\Delta=2$ prikazuje, ko so vsi podatki v danih mejah, kar nakazuje na to, da je FDR skoraj 0 (določili smo preveliko vrednost za prag). 
+
+
+# Viri
+https://www.raybiotech.com/learning-center/sam/
+https://tibshirani.su.domains/SAM/sam.pdf
+
+
+
+
+
